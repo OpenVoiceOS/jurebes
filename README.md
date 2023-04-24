@@ -16,20 +16,8 @@ name = ["my name is {name}", "call me {name}", "I am {name}",
         "the name is {name}", "{name} is my name", "{name} is my name"]
 joke = ["tell me a joke", "say a joke", "tell joke"]
 
-# single clf
-clf = SVC(probability=True)
-# multiple classifiers will use soft voting to select prediction
-# clf = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
 
-#tagger = OVOSNgramTagger(default_tag="O") # classic nltk
-#tagger = SVC(probability=True)  # any scikit-learn clf
-tagger = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
-
-# pre defined pipelines from ovos-classifiers
-clf_pipeline = "tfidf_lemma"
-tagger_pipeline = "words"
-engine = JurebesIntentContainer(clf, tagger,
-                                clf_pipeline, tagger_pipeline)
+engine = JurebesIntentContainer()
 
 engine.add_entity("name", ["jarbas", "bob", "João Casimiro Ferreira"])
 engine.add_intent("hello", hello)
@@ -57,7 +45,40 @@ for intent, sents in test_set.items():
 # say joke IntentMatch(intent_name='joke', confidence=0.9785338275012387, entities={})
 # make me laugh IntentMatch(intent_name='name', confidence=0.725778770677012, entities={})
 # do you know any joke IntentMatch(intent_name='joke', confidence=0.917960967116358, entities={})
+```
 
+## Advanced Usage
+
+you can select the classifiers or enable fuzzy matching and influence predictions, jurebes is stateful
+
+```python
+from jurebes import JurebesIntentContainer
+
+# single clf
+clf = SVC(probability=True)  # any scikit-learn clf
+# multiple classifiers will use soft voting to select prediction
+# clf = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()] / default if not in args
+
+tagger = OVOSNgramTagger(default_tag="O") # classic nltk / default if not in args
+#tagger = SVC(probability=True)  # any scikit-learn clf
+#tagger = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
+
+# pre defined pipelines from ovos-classifiers
+clf_pipeline = "tfidf"  # default if not in args
+tagger_pipeline = "words"  # default if not in args
+engine = JurebesIntentContainer(clf, tagger,
+                                clf_pipeline, tagger_pipeline)
+
+(...)  # register intents
+
+# fuzzy matching
+engine.enable_fuzzy()
+sent = "they call me Ana Ferreira"
+print(engine.calc_intent(sent))
+# IntentMatch(intent_name='name', confidence=0.8716633619210677, entities={'name': 'ana ferreira'})
+engine.disable_fuzzy()
+print(engine.calc_intent(sent))
+# IntentMatch(intent_name='name', confidence=0.8282293617609358, entities={'name': 'ferreira'})
 
 
 # force correct prediction
@@ -66,10 +87,12 @@ engine.exclude_keywords("hello", ["laugh"])
 print(engine.calc_intent("make me laugh"))
 # IntentMatch(intent_name='joke', confidence=0.13906218566700498, entities={})
 
+
 # inject entities
 engine.set_context("joke", "joke_type", "chuck_norris")
 print(engine.calc_intent("tell me a chuch norris joke"))
 # IntentMatch(intent_name='joke', confidence=0.9707841337857908, entities={'joke_type': 'chuck_norris'})
+
 
 # require entities
 engine.require_context("joke", "joke_type")
@@ -81,4 +104,11 @@ print(engine.calc_intent("tell me a chuch norris joke"))
 # IntentMatch(intent_name='joke', confidence=0.9462089582801377, entities={})
 
 
+# exclude intent matches based on context
+engine.exclude_context("hello", "said_hello")
+print(engine.calc_intent("hello"))
+# IntentMatch(intent_name='hello', confidence=1, entities={})
+engine.set_context("hello", "said_hello")  # now wont predict hello intent
+print(engine.calc_intent("hello"))
+# IntentMatch(intent_name='joke', confidence=0.06986199472674888, entities={})
 ```

@@ -41,6 +41,13 @@ class JurebesIntentContainer:
         self.available_contexts = {}
         self.required_contexts = {}
         self.excluded_keywords = {}
+        self.excluded_contexts = {}
+
+    def enable_fuzzy(self):
+        self.padacioso.fuzz = True
+
+    def disable_fuzzy(self):
+        self.padacioso.fuzz = False
 
     def add_intent(self, intent_name, samples):
         samples = [l.lower() for l in samples]
@@ -57,6 +64,17 @@ class JurebesIntentContainer:
         if intent_name not in self.available_contexts:
             self.available_contexts[intent_name] = {}
         self.available_contexts[intent_name][context_name] = context_val
+
+    def exclude_context(self, intent_name, context_name):
+        if intent_name not in self.excluded_contexts:
+            self.excluded_contexts[intent_name] = [context_name]
+        else:
+            self.excluded_contexts[intent_name].append(context_name)
+
+    def unexclude_context(self, intent_name, context_name):
+        if intent_name in self.excluded_contexts:
+            self.excluded_contexts[intent_name] = [c for c in self.excluded_contexts[intent_name]
+                                                   if context_name != c]
 
     def unset_context(self, intent_name, context_name):
         if intent_name in self.available_contexts:
@@ -127,17 +145,26 @@ class JurebesIntentContainer:
                      for context in contexts):
                 excluded_intents.append(intent_name)
 
-        # print("excluded intents:", excluded_intents)
+        for intent_name, contexts in self.excluded_contexts.items():
+            if intent_name not in self.available_contexts:
+                continue
+            if any(context in self.available_contexts[intent_name]
+                   for context in contexts):
+                excluded_intents.append(intent_name)
+
+        ents = self.get_entities(query)
 
         for exact_intent in self.padacioso.calc_intents(query):
             if exact_intent["name"]:
+                if exact_intent["name"] in excluded_intents:
+                    continue
+                ents.update(exact_intent["entities"])
                 yield IntentMatch(confidence=exact_intent["conf"],
                                   intent_name=exact_intent["name"],
-                                  entities=exact_intent["entities"])
+                                  entities=ents)
 
         probs = self.classifier.clf.predict_proba([query])[0]
         classes = self.classifier.clf.classes_
-        ents = self.get_entities(query)
 
         for intent, prob in zip(classes, probs):
             if intent in excluded_intents:
@@ -255,7 +282,8 @@ if __name__ == "__main__":
     clf_pipeline = "tfidf"
     tagger_pipeline = "words"
     engine = JurebesIntentContainer(clf, tagger,
-                                    clf_pipeline, tagger_pipeline)
+                                    clf_pipeline, tagger_pipeline,
+                                    fuzzy=False)  # fuzzy match may improve entity extraction
 
     engine.add_entity("name", ["jarbas", "bob", "João Casimiro Ferreira"])
     engine.add_intent("hello", hello)
@@ -273,33 +301,21 @@ if __name__ == "__main__":
         for sent in sents:
             print(sent, engine.calc_intent(sent))
 
-    # I am groot IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'groot'})
-    # my name is jarbas IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'jarbas'})
-    # jarbas is the name IntentMatch(intent_name='name', confidence=0.9141868974242002, entities={'name': 'jarbas'})
-    # they call me Ana Ferreira IntentMatch(intent_name='name', confidence=0.8599902513687149, entities={'name': 'ferreira'})
-    # hello beautiful IntentMatch(intent_name='hello', confidence=0.8475377118056997, entities={})
-    # hello bob IntentMatch(intent_name='hello', confidence=0.5025161990154762, entities={'name': 'bob'})
-    # hello world IntentMatch(intent_name='hello', confidence=0.8475377118056997, entities={})
-    # say joke IntentMatch(intent_name='joke', confidence=0.9785338275012387, entities={})
-    # make me laugh IntentMatch(intent_name='name', confidence=0.6135639618555918, entities={})
-    # do you know any joke IntentMatch(intent_name='joke', confidence=0.9785338275012387, entities={})
+    # I am groot IntentMatch(intent_name='name', confidence=0.95, entities={'name': 'groot'})
+    # my name is jarbas IntentMatch(intent_name='name', confidence=1, entities={'name': 'jarbas'})
+    # jarbas is the name IntentMatch(intent_name='name', confidence=0.9103060265385112, entities={'name': 'jarbas'})
+    # they call me Ana Ferreira IntentMatch(intent_name='name', confidence=0.8539103439781974, entities={'name': 'ferreira'})
+    # hello beautiful IntentMatch(intent_name='hello', confidence=0.8642926826931172, entities={})
+    # hello bob IntentMatch(intent_name='hello', confidence=0.5378103564074476, entities={'name': 'bob'})
+    # hello world IntentMatch(intent_name='hello', confidence=0.8642926826931172, entities={})
+    # say joke IntentMatch(intent_name='joke', confidence=0.9409318377180504, entities={})
+    # make me laugh IntentMatch(intent_name='name', confidence=0.6116405452151128, entities={})
+    # do you know any joke IntentMatch(intent_name='joke', confidence=0.9409318377180504, entities={})
 
-    # force correct prediction
-    engine.exclude_keywords("name", ["laugh"])
-    engine.exclude_keywords("hello", ["laugh"])
-    print(engine.calc_intent("make me laugh"))
-    # IntentMatch(intent_name='joke', confidence=0.13906218566700498, entities={})
-
-    # inject entities
-    engine.set_context("joke", "joke_type", "chuck_norris")
-    print(engine.calc_intent("tell me a chuch norris joke"))
-    # IntentMatch(intent_name='joke', confidence=0.9707841337857908, entities={'joke_type': 'chuck_norris'})
-
-    # require entities
-    engine.require_context("joke", "joke_type")
-    engine.unset_context("joke", "joke_type")
-    print(engine.calc_intent("tell me a chuch norris joke"))
-    # IntentMatch(intent_name='hello', confidence=0.060199275248566525, entities={})
-    engine.unrequire_context("joke", "joke_type")
-    print(engine.calc_intent("tell me a chuch norris joke"))
-    # IntentMatch(intent_name='joke', confidence=0.9462089582801377, entities={})
+    engine.enable_fuzzy()
+    sent = "they call me Ana Ferreira"
+    print(engine.calc_intent(sent))
+    # IntentMatch(intent_name='name', confidence=0.8716633619210677, entities={'name': 'ana ferreira'})
+    engine.disable_fuzzy()
+    print(engine.calc_intent(sent))
+    # IntentMatch(intent_name='name', confidence=0.8282293617609358, entities={'name': 'ferreira'})
