@@ -4,6 +4,7 @@ from ovos_classifiers.skovos.classifier import SklearnOVOSClassifier, SklearnOVO
 from ovos_classifiers.skovos.tagger import SklearnOVOSClassifierTagger, SklearnOVOSVotingClassifierTagger
 from ovos_classifiers.tasks.tagger import OVOSNgramTagger
 from padacioso import IntentContainer as PadaciosoIntentContainer
+from padacioso.bracket_expansion import expand_parentheses
 from quebra_frases import word_tokenize
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
@@ -52,7 +53,11 @@ class JurebesIntentContainer:
         self.padacioso.fuzz = False
 
     def add_intent(self, intent_name, samples):
-        samples = [l.lower() for l in samples]
+        expanded = []
+        for l in samples:
+            expanded += expand_parentheses(l.lower())
+        samples = list(set(expanded))
+
         self.padacioso.add_intent(intent_name, samples)
         self.intent_samples[intent_name] = samples
 
@@ -117,7 +122,10 @@ class JurebesIntentContainer:
             del self.intent_samples[intent_name]
 
     def add_entity(self, entity_name, samples):
-        samples = [l.lower() for l in samples]
+        expanded = []
+        for l in samples:
+            expanded += expand_parentheses(l.lower())
+        samples = list(set(expanded))
         self.padacioso.add_entity(entity_name, samples)
         self.entity_samples[entity_name] = samples
 
