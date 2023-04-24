@@ -69,10 +69,23 @@ class JurebesIntentContainer:
     def get_dataset(self):
         X = []
         y = []
+
+        def expand(sample, intent):
+            for entity in self.entity_lines:
+                tok = "{" + entity + "}"
+                if tok not in sample:
+                    continue
+                for s in self.entity_lines[entity]:
+                    X.append(s.replace(tok, s))
+                    y.append(intent)
+
         for intent, samples in self.intent_lines.items():
             for s in self.intent_lines[intent]:
-                X.append(s.lower())
-                y.append(intent)
+                if "{" in s:
+                    expand(s, intent)
+                else:
+                    X.append(s.lower())
+                    y.append(intent)
         return X, y
 
     def _is_exact(self, intent, sample):
@@ -104,7 +117,7 @@ if __name__ == "__main__":
     from sklearn.tree import DecisionTreeClassifier
     from sklearn.linear_model import LogisticRegression
 
-    clf = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
+    #clf = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
 
     engine = JurebesIntentContainer("tfidf_lemma", clf)
 
