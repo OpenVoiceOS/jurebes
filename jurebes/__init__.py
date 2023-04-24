@@ -171,7 +171,8 @@ class JurebesIntentContainer:
                 continue
             if intent in self.available_contexts:
                 for context, val in self.available_contexts[intent].items():
-                    ents[context] = val
+                    if val is not None:
+                        ents[context] = val
 
             yield IntentMatch(confidence=prob,
                               intent_name=intent,

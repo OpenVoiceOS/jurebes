@@ -88,13 +88,13 @@ print(engine.calc_intent("make me laugh"))
 # IntentMatch(intent_name='joke', confidence=0.13906218566700498, entities={})
 
 
-# inject entities
-engine.set_context("joke", "joke_type", "chuck_norris")
+# inject context
+engine.set_context("joke", "joke_type", "chuck_norris")  # if a value is passed it will populate entities
 print(engine.calc_intent("tell me a chuch norris joke"))
 # IntentMatch(intent_name='joke', confidence=0.9707841337857908, entities={'joke_type': 'chuck_norris'})
 
 
-# require entities
+# require context
 engine.require_context("joke", "joke_type")
 engine.unset_context("joke", "joke_type")
 print(engine.calc_intent("tell me a chuch norris joke"))
