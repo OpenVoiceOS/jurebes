@@ -18,11 +18,11 @@ class IntentMatch:
 
 
 class JurebesIntentContainer:
-    def __init__(self, clf=None, tagger=None, pipeline="tfidf_lemma", tagger_pipeline="naive"):
+    def __init__(self, clf=None, tagger=None, pipeline="tfidf_lemma", tagger_pipeline="naive", fuzzy=False):
         clf = clf or [SVC(probability=True),
                       LogisticRegression(),
                       DecisionTreeClassifier()]
-        self.padacioso = PadaciosoIntentContainer()
+        self.padacioso = PadaciosoIntentContainer(fuzz=fuzzy)
 
         if isinstance(clf, list):
             self.classifier = SklearnOVOSVotingClassifier(clf, pipeline)
@@ -87,7 +87,7 @@ class JurebesIntentContainer:
         query = query.lower()
         for exact_intent in self.padacioso.calc_intents(query):
             if exact_intent["name"]:
-                yield IntentMatch(confidence=1.0,
+                yield IntentMatch(confidence=exact_intent["conf"],
                                   intent_name=exact_intent["name"],
                                   entities=exact_intent["entities"])
 
