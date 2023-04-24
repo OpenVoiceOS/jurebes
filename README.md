@@ -6,7 +6,7 @@ J.U.R.E.B.E.S. - Just Understand, Recognize, and Extract Byword Entities System
 ## Usage
 
 ```python
-from jurebes import JurebesIntentContaine
+from jurebes import JurebesIntentContainer
 
 
 hello = ["hello human", "hello there", "hey", "hello", "hi"]
@@ -48,7 +48,7 @@ for intent, sents in test_set.items():
 # I am groot IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'groot'})
 # my name is jarbas IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'jarbas'})
 # jarbas is the name IntentMatch(intent_name='name', confidence=0.9201351734080562, entities={'name': 'jarbas'})
-# call me Ana Ferreira IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'ana ferreira'})
+# call me Ana Ferreira IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'ferreira'})
 # hello beautiful IntentMatch(intent_name='hello', confidence=0.8716522106345048, entities={})
 # hello bob IntentMatch(intent_name='hello', confidence=0.5400801051648911, entities={'name': 'bob'})
 # hello world IntentMatch(intent_name='hello', confidence=0.8716522106345048, entities={})
