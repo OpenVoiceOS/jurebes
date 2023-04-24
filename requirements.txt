@@ -1,3 +1,4 @@
 ovos-utils
 ovos-classifiers
 padacioso
+quebra-frases

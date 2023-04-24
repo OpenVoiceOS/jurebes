@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 
 from ovos_classifiers.skovos.classifier import SklearnOVOSClassifier, SklearnOVOSVotingClassifier
+from ovos_classifiers.skovos.tagger import SklearnOVOSClassifierTagger, SklearnOVOSVotingClassifierTagger
+from ovos_classifiers.tasks.tagger import OVOSNgramTagger
 from padacioso import IntentContainer as PadaciosoIntentContainer
 from quebra_frases import word_tokenize
-from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
-from ovos_classifiers.tasks.tagger import OVOSNgramTagger
-from ovos_classifiers.skovos.tagger import SklearnOVOSClassifierTagger, SklearnOVOSVotingClassifierTagger
 
 
 @dataclass()
@@ -25,9 +25,9 @@ class JurebesIntentContainer:
         self.padacioso = PadaciosoIntentContainer()
 
         if isinstance(clf, list):
-            self.jurebes = SklearnOVOSVotingClassifier(clf, pipeline)
+            self.classifier = SklearnOVOSVotingClassifier(clf, pipeline)
         else:
-            self.jurebes = SklearnOVOSClassifier(pipeline, clf)
+            self.classifier = SklearnOVOSClassifier(pipeline, clf)
 
         if tagger is None:
             self.tagger = OVOSNgramTagger(default_tag="O")
@@ -91,8 +91,8 @@ class JurebesIntentContainer:
                                   intent_name=exact_intent["name"],
                                   entities=exact_intent["entities"])
 
-        prob = self.jurebes.predict_proba([query])[0]
-        intent = self.jurebes.predict([query])[0]
+        prob = self.classifier.predict_proba([query])[0]
+        intent = self.classifier.predict([query])[0]
         yield IntentMatch(confidence=prob,
                           intent_name=intent,
                           entities=self.get_entities(query))
@@ -116,7 +116,7 @@ class JurebesIntentContainer:
 
     def train(self):
         X, y = self.get_dataset()
-        self.jurebes.train(X, y)
+        self.classifier.train(X, y)
 
         X = self.get_iob_dataset()
         if isinstance(self.tagger, OVOSNgramTagger):
@@ -182,22 +182,6 @@ class JurebesIntentContainer:
 
         return X
 
-    def _is_exact(self, intent, sample):
-        exact = self.padacioso.calc_intent(sample)
-        if exact["name"] is not None:
-            if exact["name"] == intent:
-                return True
-        return False
-
-    def accuracy(self, test_set):
-        X = []
-        y = []
-        for intent, samples in test_set.items():
-            for s in samples:
-                X.append(s.lower())
-                y.append(intent)
-        return self.jurebes.score(X, y)
-
 
 if __name__ == "__main__":
     hello = ["hello human", "hello there", "hey", "hello", "hi"]
@@ -210,8 +194,8 @@ if __name__ == "__main__":
     # multiple classifiers will use soft voting to select prediction
     # clf = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
 
-    #tagger = OVOSNgramTagger(default_tag="O") # classic nltk
-    #tagger = SVC(probability=True)  # any scikit-learn clf
+    # tagger = OVOSNgramTagger(default_tag="O") # classic nltk
+    # tagger = SVC(probability=True)  # any scikit-learn clf
     tagger = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
 
     # pre defined pipelines from ovos-classifiers

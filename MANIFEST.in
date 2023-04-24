@@ -1,0 +1,4 @@
+recursive-include jurebes/ *
+include CHANGELOG.md
+include LICENSE
+include requirements.txt

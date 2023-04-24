@@ -1,4 +1,4 @@
-# Jurebes
+# jurebes
 
 J.U.R.E.B.E.S: Joint Universal Rule-based Engine and Bagging Ensemble-based System
 
