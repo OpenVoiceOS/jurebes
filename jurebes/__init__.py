@@ -42,6 +42,7 @@ class JurebesIntentContainer:
         self.required_contexts = {}
         self.excluded_keywords = {}
         self.excluded_contexts = {}
+        self.detached_intents = []
 
     def enable_fuzzy(self):
         self.padacioso.fuzz = True
@@ -53,6 +54,14 @@ class JurebesIntentContainer:
         samples = [l.lower() for l in samples]
         self.padacioso.add_intent(intent_name, samples)
         self.intent_samples[intent_name] = samples
+
+    def detach_intent(self, intent_name):
+        if intent_name not in self.detached_intents:
+            self.detached_intents.append(intent_name)
+
+    def reatach_intent(self, intent_name):
+        if intent_name in self.detached_intents:
+            self.detached_intents.remove(intent_name)
 
     def exclude_keywords(self, intent_name, samples):
         if intent_name not in self.excluded_keywords:
@@ -134,7 +143,7 @@ class JurebesIntentContainer:
     def calc_intents(self, query):
         query = query.lower()
 
-        excluded_intents = []
+        excluded_intents = self.detached_intents
         for intent_name, samples in self.excluded_keywords.items():
             if any(s in query for s in samples):
                 excluded_intents.append(intent_name)
@@ -320,3 +329,11 @@ if __name__ == "__main__":
     engine.disable_fuzzy()
     print(engine.calc_intent(sent))
     # IntentMatch(intent_name='name', confidence=0.8282293617609358, entities={'name': 'ferreira'})
+
+    # temporarily disable a intent
+    engine.detach_intent("name")
+    print(engine.calc_intent(sent))
+    # IntentMatch(intent_name='hello', confidence=0.06113697262028985, entities={'name': 'ferreira'})
+    engine.reatach_intent("name")
+    print(engine.calc_intent(sent))
+    # IntentMatch(intent_name='name', confidence=0.8548664325189478, entities={'name': 'ferreira'})

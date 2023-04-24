@@ -81,6 +81,15 @@ print(engine.calc_intent(sent))
 # IntentMatch(intent_name='name', confidence=0.8282293617609358, entities={'name': 'ferreira'})
 
 
+# temporarily disable a intent
+engine.detach_intent("name")
+print(engine.calc_intent(sent))
+# IntentMatch(intent_name='hello', confidence=0.06113697262028985, entities={'name': 'ferreira'})
+engine.reatach_intent("name")
+print(engine.calc_intent(sent))
+# IntentMatch(intent_name='name', confidence=0.8548664325189478, entities={'name': 'ferreira'})
+
+
 # force correct prediction
 engine.exclude_keywords("name", ["laugh"])
 engine.exclude_keywords("hello", ["laugh"])
