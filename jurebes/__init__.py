@@ -43,6 +43,7 @@ class JurebesIntentContainer:
         self.excluded_keywords = {}
         self.excluded_contexts = {}
         self.detached_intents = []
+        self.detached_entities = []
 
     def enable_fuzzy(self):
         self.padacioso.fuzz = True
@@ -62,6 +63,14 @@ class JurebesIntentContainer:
     def reatach_intent(self, intent_name):
         if intent_name in self.detached_intents:
             self.detached_intents.remove(intent_name)
+
+    def detach_entity(self, entity_name):
+        if entity_name not in self.detached_entities:
+            self.detached_entities.append(entity_name)
+
+    def reatach_entity(self, entity_name):
+        if entity_name in self.detached_entities:
+            self.detached_entities.remove(entity_name)
 
     def exclude_keywords(self, intent_name, samples):
         if intent_name not in self.excluded_keywords:
@@ -102,6 +111,7 @@ class JurebesIntentContainer:
                                                    if context_name != c]
 
     def remove_intent(self, intent_name):
+        self.detach_intent(intent_name)
         self.padacioso.remove_intent(intent_name)
         if intent_name in self.intent_samples:
             del self.intent_samples[intent_name]
@@ -112,6 +122,7 @@ class JurebesIntentContainer:
         self.entity_samples[entity_name] = samples
 
     def remove_entity(self, entity_name):
+        self.detach_entity(entity_name)
         self.padacioso.remove_entity(entity_name)
         if entity_name in self.entity_samples:
             del self.entity_samples[entity_name]
@@ -168,12 +179,14 @@ class JurebesIntentContainer:
                 if exact_intent["name"] in excluded_intents:
                     continue
                 ents.update(exact_intent["entities"])
+                ents = {k: v for k, v in ents.items() if k not in self.detached_entities}
                 yield IntentMatch(confidence=exact_intent["conf"],
                                   intent_name=exact_intent["name"],
                                   entities=ents)
 
         probs = self.classifier.clf.predict_proba([query])[0]
         classes = self.classifier.clf.classes_
+        ents = {k: v for k, v in ents.items() if k not in self.detached_entities}
 
         for intent, prob in zip(classes, probs):
             if intent in excluded_intents:
