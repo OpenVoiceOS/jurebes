@@ -215,7 +215,7 @@ if __name__ == "__main__":
     tagger = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
 
     # pre defined pipelines from ovos-classifiers
-    clf_pipeline = "tfidf_lemma"
+    clf_pipeline = "tfidf"
     tagger_pipeline = "words"
     engine = JurebesIntentContainer(clf, tagger,
                                     clf_pipeline, tagger_pipeline)
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     test_set = {"name": ["I am groot", "my name is jarbas",
                          "jarbas is the name", "they call me Ana Ferreira"],
                 "hello": ["hello beautiful", "hello bob", "hello world"],
-                "joke": ["say a joke", "make me laugh", "do you know any joke"]}
+                "joke": ["say joke", "make me laugh", "do you know any joke"]}
 
     for intent, sents in test_set.items():
         for sent in sents:
@@ -238,12 +238,11 @@ if __name__ == "__main__":
 
     # I am groot IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'groot'})
     # my name is jarbas IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'jarbas'})
-    # jarbas is the name IntentMatch(intent_name='name', confidence=0.9201351734080562, entities={'name': 'jarbas'})
-    # call me Ana Ferreira IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'ana ferreira'})
-    # hello beautiful IntentMatch(intent_name='hello', confidence=0.8716522106345048, entities={})
-    # hello bob IntentMatch(intent_name='hello', confidence=0.5400801051648911, entities={'name': 'bob'})
-    # hello world IntentMatch(intent_name='hello', confidence=0.8716522106345048, entities={})
-    # say a joke IntentMatch(intent_name='joke', confidence=1.0, entities={})
-    # make me laugh IntentMatch(intent_name='name', confidence=0.725778770677012, entities={})
-    # do you know any joke IntentMatch(intent_name='joke', confidence=0.917960967116358, entities={})
-
+    # jarbas is the name IntentMatch(intent_name='name', confidence=0.9141868974242002, entities={'name': 'jarbas'})
+    # they call me Ana Ferreira IntentMatch(intent_name='name', confidence=0.8599902513687149, entities={'name': 'ferreira'})
+    # hello beautiful IntentMatch(intent_name='hello', confidence=0.8475377118056997, entities={})
+    # hello bob IntentMatch(intent_name='hello', confidence=0.5025161990154762, entities={'name': 'bob'})
+    # hello world IntentMatch(intent_name='hello', confidence=0.8475377118056997, entities={})
+    # say joke IntentMatch(intent_name='joke', confidence=0.9785338275012387, entities={})
+    # make me laugh IntentMatch(intent_name='name', confidence=0.6135639618555918, entities={})
+    # do you know any joke IntentMatch(intent_name='joke', confidence=0.9785338275012387, entities={})
