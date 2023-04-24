@@ -182,15 +182,15 @@ class JurebesIntentContainer:
 
         ents = self.get_entities(query)
 
+        exact_intents = {}
+
         for exact_intent in self.padacioso.calc_intents(query):
             if exact_intent["name"]:
                 if exact_intent["name"] in excluded_intents:
                     continue
-                ents.update(exact_intent["entities"])
-                ents = {k: v for k, v in ents.items() if k not in self.detached_entities}
-                yield IntentMatch(confidence=exact_intent["conf"],
-                                  intent_name=exact_intent["name"],
-                                  entities=ents)
+                exact_intents[exact_intent["name"]] = IntentMatch(confidence=exact_intent["conf"],
+                                                                  intent_name=exact_intent["name"],
+                                                                  entities=exact_intent["entities"])
 
         probs = self.classifier.clf.predict_proba([query])[0]
         classes = self.classifier.clf.classes_
@@ -204,9 +204,19 @@ class JurebesIntentContainer:
                     if val is not None:
                         ents[context] = val
 
+            if intent in exact_intents and self.padacioso.fuzz:
+                ents.update(exact_intents[intent].entities)
+                ents = {k: v for k, v in ents.items() if k not in self.detached_entities}
+
+            exact_intents = {n: i for n, i in exact_intents.items()
+                             if i.intent_name != intent}
+
             yield IntentMatch(confidence=prob,
                               intent_name=intent,
                               entities=ents)
+
+        for intent in exact_intents.values():
+            yield intent
 
     def calc_intent(self, query):
         intents = list(self.calc_intents(query))
