@@ -1,0 +1,3 @@
+ovos-utils
+ovos-classifiers
+padacioso
