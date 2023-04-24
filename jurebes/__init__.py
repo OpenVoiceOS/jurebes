@@ -7,6 +7,7 @@ from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from ovos_classifiers.tasks.tagger import OVOSNgramTagger
+from ovos_classifiers.skovos.tagger import SklearnOVOSClassifierTagger, SklearnOVOSVotingClassifierTagger
 
 
 @dataclass()
@@ -17,7 +18,7 @@ class IntentMatch:
 
 
 class JurebesIntentContainer:
-    def __init__(self, pipeline, clf=None):
+    def __init__(self, pipeline, clf=None, tagger=None):
         clf = clf or [SVC(probability=True),
                       LogisticRegression(),
                       DecisionTreeClassifier()]
@@ -28,8 +29,12 @@ class JurebesIntentContainer:
         else:
             self.jurebes = SklearnOVOSClassifier(pipeline, clf)
 
-        self.tagger = OVOSNgramTagger(default_tag="O")
-
+        if tagger is None:
+            self.tagger = OVOSNgramTagger(default_tag="O")
+        elif isinstance(tagger, list):
+            self.tagger = SklearnOVOSVotingClassifierTagger(tagger)
+        else:
+            self.tagger = SklearnOVOSClassifierTagger(tagger)
         self.intent_lines, self.entity_lines = {}, {}
 
     def add_intent(self, name, lines):
@@ -55,7 +60,13 @@ class JurebesIntentContainer:
     def get_entities(self, query):
         entities = {}
         in_entity = False
-        for word, tag in self.tagger.tag(query):
+        if isinstance(self.tagger, OVOSNgramTagger):
+            tags = self.tagger.tag(query)
+        else:
+            toks = query.split()
+            tags = list(zip(toks, self.tagger.tag(toks)))
+
+        for word, tag in tags:
             if tag == "O":
                 in_entity = False
                 continue
@@ -67,6 +78,7 @@ class JurebesIntentContainer:
                 in_entity = True
             elif in_entity:
                 entities[ent_name] += " " + word
+
         return entities
 
     def calc_intents(self, query):
@@ -89,11 +101,27 @@ class JurebesIntentContainer:
             return max(intents, key=lambda k: k.confidence)
         return None
 
+    @staticmethod
+    def _transform_iob_to_dataset(tagged_sentences):
+        X, y = [], []
+
+        for tagged in tagged_sentences:
+            for index in range(len(tagged)):
+                X.append(tagged[index][0])
+                y.append(tagged[index][1])
+
+        return X, y
+
     def train(self):
         X, y = self.get_dataset()
         self.jurebes.train(X, y)
+
         X = self.get_iob_dataset()
-        self.tagger.train(X)
+        if isinstance(self.tagger, OVOSNgramTagger):
+            self.tagger.train(X)
+        else:
+            X, y = self._transform_iob_to_dataset(X)
+            self.tagger.train(X, y)
 
     def get_dataset(self):
         X = []
@@ -180,7 +208,11 @@ if __name__ == "__main__":
     # multiple classifiers will use soft voting to select prediction
     # clf = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
 
-    engine = JurebesIntentContainer("tfidf_lemma", clf)
+    #tagger = OVOSNgramTagger(default_tag="O") # classic nltk
+    #tagger = SVC(probability=True)  # any scikit-learn clf
+    tagger = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
+
+    engine = JurebesIntentContainer("tfidf_lemma", clf, tagger)
 
     engine.add_entity("name", ["jarbas", "bob", "João Casimiro Ferreira"])
     engine.add_intent("hello", hello)
@@ -199,10 +231,11 @@ if __name__ == "__main__":
 
     # I am groot IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'groot'})
     # my name is jarbas IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'jarbas'})
-    # jarbas is the name IntentMatch(intent_name='name', confidence=0.8853768669468998, entities={'name': 'jarbas'})
-    # hello beautiful IntentMatch(intent_name='hello', confidence=0.8094038390048462, entities={})
-    # hello bob IntentMatch(intent_name='hello', confidence=0.4518911986498847, entities={'name': 'bob'})
-    # hello world IntentMatch(intent_name='hello', confidence=0.8094038390048462, entities={})
+    # jarbas is the name IntentMatch(intent_name='name', confidence=0.9171735483983514, entities={'name': 'jarbas'})
+    # hello beautiful IntentMatch(intent_name='hello', confidence=0.8448263265971205, entities={})
+    # hello bob IntentMatch(intent_name='hello', confidence=0.4624880855374597, entities={'name': 'bob'})
+    # hello world IntentMatch(intent_name='hello', confidence=0.8448263265971205, entities={})
     # say a joke IntentMatch(intent_name='joke', confidence=1.0, entities={})
-    # make me laugh IntentMatch(intent_name='name', confidence=0.695092259467801, entities={})
-    # do you know any joke IntentMatch(intent_name='joke', confidence=0.9817285368200765, entities={})
+    # make me laugh IntentMatch(intent_name='name', confidence=0.6122971693458019, entities={})
+    # do you know any joke IntentMatch(intent_name='joke', confidence=0.9951130189218413, entities={})
+

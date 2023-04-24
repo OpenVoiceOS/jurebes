@@ -19,7 +19,11 @@ clf = SVC(probability=True)
 # multiple classifiers will use soft voting to select prediction
 # clf = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
 
-engine = JurebesIntentContainer("tfidf_lemma", clf)
+#tagger = OVOSNgramTagger(default_tag="O") # classic nltk
+#tagger = SVC(probability=True)  # any scikit-learn clf
+tagger = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
+
+engine = JurebesIntentContainer("tfidf_lemma", clf, tagger)
 
 engine.add_entity("name", ["jarbas", "bob", "João Casimiro Ferreira"])
 engine.add_intent("hello", hello)
@@ -38,12 +42,13 @@ for intent, sents in test_set.items():
 
 # I am groot IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'groot'})
 # my name is jarbas IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'jarbas'})
-# jarbas is the name IntentMatch(intent_name='name', confidence=0.8853768669468998, entities={'name': 'jarbas'})
-# hello beautiful IntentMatch(intent_name='hello', confidence=0.8094038390048462, entities={})
-# hello bob IntentMatch(intent_name='hello', confidence=0.4518911986498847, entities={'name': 'bob'})
-# hello world IntentMatch(intent_name='hello', confidence=0.8094038390048462, entities={})
+# jarbas is the name IntentMatch(intent_name='name', confidence=0.9171735483983514, entities={'name': 'jarbas'})
+# hello beautiful IntentMatch(intent_name='hello', confidence=0.8448263265971205, entities={})
+# hello bob IntentMatch(intent_name='hello', confidence=0.4624880855374597, entities={'name': 'bob'})
+# hello world IntentMatch(intent_name='hello', confidence=0.8448263265971205, entities={})
 # say a joke IntentMatch(intent_name='joke', confidence=1.0, entities={})
-# make me laugh IntentMatch(intent_name='name', confidence=0.695092259467801, entities={})
-# do you know any joke IntentMatch(intent_name='joke', confidence=0.9817285368200765, entities={})
+# make me laugh IntentMatch(intent_name='name', confidence=0.6122971693458019, entities={})
+# do you know any joke IntentMatch(intent_name='joke', confidence=0.9951130189218413, entities={})
+
 
 ```
