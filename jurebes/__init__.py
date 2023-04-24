@@ -18,7 +18,7 @@ class IntentMatch:
 
 
 class JurebesIntentContainer:
-    def __init__(self, pipeline, clf=None, tagger=None):
+    def __init__(self, clf=None, tagger=None, pipeline="tfidf_lemma", tagger_pipeline="naive"):
         clf = clf or [SVC(probability=True),
                       LogisticRegression(),
                       DecisionTreeClassifier()]
@@ -32,9 +32,11 @@ class JurebesIntentContainer:
         if tagger is None:
             self.tagger = OVOSNgramTagger(default_tag="O")
         elif isinstance(tagger, list):
-            self.tagger = SklearnOVOSVotingClassifierTagger(tagger)
+            self.tagger = SklearnOVOSVotingClassifierTagger(tagger, tagger_pipeline)
+        elif isinstance(tagger, OVOSNgramTagger):
+            self.tagger = tagger
         else:
-            self.tagger = SklearnOVOSClassifierTagger(tagger)
+            self.tagger = SklearnOVOSClassifierTagger(tagger, tagger_pipeline)
         self.intent_lines, self.entity_lines = {}, {}
 
     def add_intent(self, name, lines):
@@ -212,7 +214,11 @@ if __name__ == "__main__":
     #tagger = SVC(probability=True)  # any scikit-learn clf
     tagger = [SVC(probability=True), LogisticRegression(), DecisionTreeClassifier()]
 
-    engine = JurebesIntentContainer("tfidf_lemma", clf, tagger)
+    # pre defined pipelines from ovos-classifiers
+    clf_pipeline = "tfidf_lemma"
+    tagger_pipeline = "words"
+    engine = JurebesIntentContainer(clf, tagger,
+                                    clf_pipeline, tagger_pipeline)
 
     engine.add_entity("name", ["jarbas", "bob", "João Casimiro Ferreira"])
     engine.add_intent("hello", hello)
@@ -221,7 +227,8 @@ if __name__ == "__main__":
 
     engine.train()
 
-    test_set = {"name": ["I am groot", "my name is jarbas", "jarbas is the name"],
+    test_set = {"name": ["I am groot", "my name is jarbas",
+                         "jarbas is the name", "they call me Ana Ferreira"],
                 "hello": ["hello beautiful", "hello bob", "hello world"],
                 "joke": ["say a joke", "make me laugh", "do you know any joke"]}
 
@@ -231,11 +238,12 @@ if __name__ == "__main__":
 
     # I am groot IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'groot'})
     # my name is jarbas IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'jarbas'})
-    # jarbas is the name IntentMatch(intent_name='name', confidence=0.9171735483983514, entities={'name': 'jarbas'})
-    # hello beautiful IntentMatch(intent_name='hello', confidence=0.8448263265971205, entities={})
-    # hello bob IntentMatch(intent_name='hello', confidence=0.4624880855374597, entities={'name': 'bob'})
-    # hello world IntentMatch(intent_name='hello', confidence=0.8448263265971205, entities={})
+    # jarbas is the name IntentMatch(intent_name='name', confidence=0.9201351734080562, entities={'name': 'jarbas'})
+    # call me Ana Ferreira IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'ana ferreira'})
+    # hello beautiful IntentMatch(intent_name='hello', confidence=0.8716522106345048, entities={})
+    # hello bob IntentMatch(intent_name='hello', confidence=0.5400801051648911, entities={'name': 'bob'})
+    # hello world IntentMatch(intent_name='hello', confidence=0.8716522106345048, entities={})
     # say a joke IntentMatch(intent_name='joke', confidence=1.0, entities={})
-    # make me laugh IntentMatch(intent_name='name', confidence=0.6122971693458019, entities={})
-    # do you know any joke IntentMatch(intent_name='joke', confidence=0.9951130189218413, entities={})
+    # make me laugh IntentMatch(intent_name='name', confidence=0.725778770677012, entities={})
+    # do you know any joke IntentMatch(intent_name='joke', confidence=0.917960967116358, entities={})
 
