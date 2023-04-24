@@ -188,6 +188,9 @@ class JurebesIntentContainer:
             if exact_intent["name"]:
                 if exact_intent["name"] in excluded_intents:
                     continue
+                # inject regex extracted entities
+                if self.padacioso.fuzz or exact_intent["conf"] >= 0.8:
+                    ents.update(exact_intent["entities"])
                 exact_intents[exact_intent["name"]] = IntentMatch(confidence=exact_intent["conf"],
                                                                   intent_name=exact_intent["name"],
                                                                   entities=exact_intent["entities"])
@@ -204,9 +207,25 @@ class JurebesIntentContainer:
                     if val is not None:
                         ents[context] = val
 
-            if intent in exact_intents and self.padacioso.fuzz:
-                ents.update(exact_intents[intent].entities)
-                ents = {k: v for k, v in ents.items() if k not in self.detached_entities}
+            if intent in exact_intents:
+                # padacioso has a fake score, not a probability
+                # usually returns 1.0 for exact matches
+                # there is some variance between 0.75 and 0.95 with non-exact matches
+                conf2 = exact_intents[intent].confidence
+                ents2 = exact_intents[intent].entities
+
+                # let's increase the base prediction probability
+                # since we got 2 matches for same intent with different engines
+                if conf2 == 1.0:
+                    # sample likely in training set
+                    bonus = 1.0
+                    # regex capture group match!
+                    if ents2:
+                        bonus = prob * 0.7
+                else:
+                    bonus = conf2 * 0.5
+
+                prob = min(1.0, prob + bonus)
 
             exact_intents = {n: i for n, i in exact_intents.items()
                              if i.intent_name != intent}
