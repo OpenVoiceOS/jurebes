@@ -59,4 +59,26 @@ for intent, sents in test_set.items():
 # do you know any joke IntentMatch(intent_name='joke', confidence=0.917960967116358, entities={})
 
 
+
+# force correct prediction
+engine.exclude_keywords("name", ["laugh"])
+engine.exclude_keywords("hello", ["laugh"])
+print(engine.calc_intent("make me laugh"))
+# IntentMatch(intent_name='joke', confidence=0.13906218566700498, entities={})
+
+# inject entities
+engine.set_context("joke", "joke_type", "chuck_norris")
+print(engine.calc_intent("tell me a chuch norris joke"))
+# IntentMatch(intent_name='joke', confidence=0.9707841337857908, entities={'joke_type': 'chuck_norris'})
+
+# require entities
+engine.require_context("joke", "joke_type")
+engine.unset_context("joke", "joke_type")
+print(engine.calc_intent("tell me a chuch norris joke"))
+# IntentMatch(intent_name='hello', confidence=0.060199275248566525, entities={})
+engine.unrequire_context("joke", "joke_type")
+print(engine.calc_intent("tell me a chuch norris joke"))
+# IntentMatch(intent_name='joke', confidence=0.9462089582801377, entities={})
+
+
 ```

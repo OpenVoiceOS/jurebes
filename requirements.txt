@@ -2,3 +2,4 @@ ovos-utils
 ovos-classifiers[sklearn]>=0.0.0a1
 padacioso
 quebra-frases
+nltk
