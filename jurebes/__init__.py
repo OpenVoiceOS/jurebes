@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from ovos_classifiers.skovos.classifier import SklearnOVOSClassifier, SklearnOVOSVotingClassifier
 from ovos_classifiers.skovos.tagger import SklearnOVOSClassifierTagger, SklearnOVOSVotingClassifierTagger
 from ovos_classifiers.tasks.tagger import OVOSNgramTagger
+from ovos_utils.log import LOG
 from padacioso import IntentContainer as PadaciosoIntentContainer
 from padacioso.bracket_expansion import expand_parentheses
 from quebra_frases import word_tokenize
@@ -138,11 +139,15 @@ class JurebesIntentContainer:
     def get_entities(self, query):
         entities = {}
         in_entity = False
-        if isinstance(self.tagger, OVOSNgramTagger):
-            tags = self.tagger.tag(query)
-        else:
-            toks = query.split()
-            tags = list(zip(toks, self.tagger.tag(toks)))
+        try:
+            if isinstance(self.tagger, OVOSNgramTagger):
+                tags = self.tagger.tag(query)
+            else:
+                toks = query.split()
+                tags = list(zip(toks, self.tagger.tag(toks)))
+        except Exception as e:
+            LOG.error(f"failed to tag entities: {e}")
+            return {}
 
         for word, tag in tags:
             if tag == "O":
@@ -195,44 +200,46 @@ class JurebesIntentContainer:
                                                                   intent_name=exact_intent["name"],
                                                                   entities=exact_intent["entities"])
 
-        probs = self.classifier.clf.predict_proba([query])[0]
-        classes = self.classifier.clf.classes_
         ents = {k: v for k, v in ents.items() if k not in self.detached_entities}
 
-        for intent, prob in zip(classes, probs):
-            if intent in excluded_intents:
-                continue
-            if intent in self.available_contexts:
-                for context, val in self.available_contexts[intent].items():
-                    if val is not None:
-                        ents[context] = val
+        if self.classifier.clf is not None:  # trained!
+            probs = self.classifier.clf.predict_proba([query])[0]
+            classes = self.classifier.clf.classes_
 
-            if intent in exact_intents:
-                # padacioso has a fake score, not a probability
-                # usually returns 1.0 for exact matches
-                # there is some variance between 0.75 and 0.95 with non-exact matches
-                conf2 = exact_intents[intent].confidence
-                ents2 = exact_intents[intent].entities
+            for intent, prob in zip(classes, probs):
+                if intent in excluded_intents:
+                    continue
+                if intent in self.available_contexts:
+                    for context, val in self.available_contexts[intent].items():
+                        if val is not None:
+                            ents[context] = val
 
-                # let's increase the base prediction probability
-                # since we got 2 matches for same intent with different engines
-                if conf2 == 1.0:
-                    # sample likely in training set
-                    bonus = 1.0
-                    # regex capture group match!
-                    if ents2:
-                        bonus = prob * 0.7
-                else:
-                    bonus = conf2 * 0.5
+                if intent in exact_intents:
+                    # padacioso has a fake score, not a probability
+                    # usually returns 1.0 for exact matches
+                    # there is some variance between 0.75 and 0.95 with non-exact matches
+                    conf2 = exact_intents[intent].confidence
+                    ents2 = exact_intents[intent].entities
 
-                prob = min(1.0, prob + bonus)
+                    # let's increase the base prediction probability
+                    # since we got 2 matches for same intent with different engines
+                    if conf2 == 1.0:
+                        # sample likely in training set
+                        bonus = 1.0
+                        # regex capture group match!
+                        if ents2:
+                            bonus = prob * 0.7
+                    else:
+                        bonus = conf2 * 0.5
 
-            exact_intents = {n: i for n, i in exact_intents.items()
-                             if i.intent_name != intent}
+                    prob = min(1.0, prob + bonus)
 
-            yield IntentMatch(confidence=prob,
-                              intent_name=intent,
-                              entities=ents)
+                exact_intents = {n: i for n, i in exact_intents.items()
+                                 if i.intent_name != intent}
+
+                yield IntentMatch(confidence=prob,
+                                  intent_name=intent,
+                                  entities=ents)
 
         for intent in exact_intents.values():
             yield intent
@@ -256,14 +263,18 @@ class JurebesIntentContainer:
 
     def train(self):
         X, y = self.get_dataset()
-        self.classifier.train(X, y)
+        if len(set(y)) < 2:
+            LOG.warning("not enough data to train! exact matches only")
+        else:
+            self.classifier.train(X, y)
 
         X = self.get_iob_dataset()
-        if isinstance(self.tagger, OVOSNgramTagger):
-            self.tagger.train(X)
-        else:
-            X, y = self._transform_iob_to_dataset(X)
-            self.tagger.train(X, y)
+        if len(X):
+            if isinstance(self.tagger, OVOSNgramTagger):
+                self.tagger.train(X)
+            else:
+                X, y = self._transform_iob_to_dataset(X)
+                self.tagger.train(X, y)
 
     def get_dataset(self):
         X = []
