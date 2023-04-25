@@ -90,11 +90,13 @@ print(engine.calc_intent(sent))
 # IntentMatch(intent_name='name', confidence=0.8548664325189478, entities={'name': 'ferreira'})
 
 
-# force correct prediction
+# force correct predictions
 engine.exclude_keywords("name", ["laugh"])
+print(engine.calc_intent("make me laugh"))
+# IntentMatch(intent_name='joke', confidence=0.5125373111690074, entities={})
 engine.exclude_keywords("hello", ["laugh"])
 print(engine.calc_intent("make me laugh"))
-# IntentMatch(intent_name='joke', confidence=0.13906218566700498, entities={})
+# IntentMatch(intent_name='joke', confidence=1.0, entities={})
 
 
 # inject context

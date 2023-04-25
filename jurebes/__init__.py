@@ -187,7 +187,7 @@ class JurebesIntentContainer:
 
         ents = self.get_entities(query)
 
-        exact_intents = {}
+        exact_intents = []
 
         for exact_intent in self.padacioso.calc_intents(query):
             if exact_intent["name"]:
@@ -196,25 +196,32 @@ class JurebesIntentContainer:
                 # inject regex extracted entities
                 if self.padacioso.fuzz or exact_intent["conf"] >= 0.8:
                     ents.update(exact_intent["entities"])
-                exact_intents[exact_intent["name"]] = IntentMatch(confidence=exact_intent["conf"],
+                exact_intents.append(IntentMatch(confidence=exact_intent["conf"],
                                                                   intent_name=exact_intent["name"],
-                                                                  entities=exact_intent["entities"])
+                                                                  entities=exact_intent["entities"]))
 
         ents = {k: v for k, v in ents.items() if k not in self.detached_entities}
 
+        classified_intents = []
+        leftover_prob = 0  # redistribute prob of excluded intents so predictions still sum up to 1
+
+        classes = self.classifier.clf.classes_
+
         if self.classifier.clf is not None:  # trained!
             probs = self.classifier.clf.predict_proba([query])[0]
-            classes = self.classifier.clf.classes_
 
             for intent, prob in zip(classes, probs):
                 if intent in excluded_intents:
+                    leftover_prob += prob
                     continue
                 if intent in self.available_contexts:
                     for context, val in self.available_contexts[intent].items():
                         if val is not None:
                             ents[context] = val
 
-                if intent in exact_intents:
+                for intent in exact_intents:
+                    if intent.intent_name != intent:
+                        continue
                     # padacioso has a fake score, not a probability
                     # usually returns 1.0 for exact matches
                     # there is some variance between 0.75 and 0.95 with non-exact matches
@@ -234,15 +241,22 @@ class JurebesIntentContainer:
 
                     prob = min(1.0, prob + bonus)
 
-                exact_intents = {n: i for n, i in exact_intents.items()
-                                 if i.intent_name != intent}
+                exact_intents = [i for i in exact_intents if i.intent_name != intent]
 
-                yield IntentMatch(confidence=prob,
-                                  intent_name=intent,
-                                  entities=ents)
+                classified_intents.append(IntentMatch(confidence=prob,
+                                                      intent_name=intent,
+                                                      entities=ents))
 
-        for intent in exact_intents.values():
-            yield intent
+        # redistribute leftover probabilities due to excluded intents
+        # increase probs so they sum up to 1
+        # excludes/context rules would filter intents but not adjust probabilities
+        intents = classified_intents + exact_intents
+        total = sum(i.confidence for i in classified_intents)
+        normbonus = (1 - total) / len(intents)
+
+        for i in intents:
+            i.confidence += normbonus
+            yield i
 
     def calc_intent(self, query):
         intents = list(self.calc_intents(query))
@@ -398,3 +412,12 @@ if __name__ == "__main__":
     engine.reatach_intent("name")
     print(engine.calc_intent(sent))
     # IntentMatch(intent_name='name', confidence=0.8548664325189478, entities={'name': 'ferreira'})
+
+    engine.exclude_keywords("name", ["laugh"])
+    print(engine.calc_intent("make me laugh"))
+    # IntentMatch(intent_name='joke', confidence=0.5125373111690074, entities={})
+
+    engine.exclude_keywords("hello", ["laugh"])
+    print(engine.calc_intent("make me laugh"))
+    # IntentMatch(intent_name='joke', confidence=1.0, entities={})
+
