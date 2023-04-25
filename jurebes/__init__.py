@@ -258,10 +258,12 @@ class JurebesIntentContainer:
             i.confidence += normbonus
             yield i
 
-    def calc_intent(self, query):
+    def calc_intent(self, query, threshold=0):
         intents = list(self.calc_intents(query))
         if len(intents):
-            return max(intents, key=lambda k: k.confidence)
+            best = max(intents, key=lambda k: k.confidence)
+            if best.confidence >= threshold:
+                return best
         return None
 
     @staticmethod

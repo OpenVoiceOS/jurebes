@@ -33,7 +33,8 @@ test_set = {"name": ["I am groot", "my name is jarbas",
 
 for intent, sents in test_set.items():
     for sent in sents:
-        print(sent, engine.calc_intent(sent))
+        # optionally pass a threshold to return None instead of low confidence matches
+        print(sent, engine.calc_intent(sent, threshold=0.5))
 
 # I am groot IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'groot'})
 # my name is jarbas IntentMatch(intent_name='name', confidence=1.0, entities={'name': 'jarbas'})
