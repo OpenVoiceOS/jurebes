@@ -56,6 +56,7 @@ class JurebesIntentContainer:
     def add_intent(self, intent_name, samples):
         expanded = []
         for l in samples:
+            l = l.replace("{{", "{").replace("}}", "}")
             expanded += expand_parentheses(l.lower())
         samples = list(set(expanded))
 
@@ -197,8 +198,21 @@ class JurebesIntentContainer:
                 if self.padacioso.fuzz or exact_intent["conf"] >= 0.8:
                     ents.update(exact_intent["entities"])
                 exact_intents.append(IntentMatch(confidence=exact_intent["conf"],
-                                                                  intent_name=exact_intent["name"],
-                                                                  entities=exact_intent["entities"]))
+                                                 intent_name=exact_intent["name"],
+                                                 entities=exact_intent["entities"]))
+
+        for intent_name, samples in self.intent_samples:
+            if any(s == query for s in samples if "{" not in s):
+                # update confidence of previous match
+                for idx, i in enumerate(exact_intents):
+                    if i.intent_name == intent_name:
+                        exact_intents[idx].confidence = 1
+                        break
+                # add new exact match
+                else:
+                    exact_intents.append(IntentMatch(confidence=1.0,
+                                                     intent_name=intent_name,
+                                                     entities={}))
 
         ents = {k: v for k, v in ents.items() if k not in self.detached_entities}
 
@@ -422,4 +436,3 @@ if __name__ == "__main__":
     engine.exclude_keywords("hello", ["laugh"])
     print(engine.calc_intent("make me laugh"))
     # IntentMatch(intent_name='joke', confidence=1.0, entities={})
-
