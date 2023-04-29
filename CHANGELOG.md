@@ -1,5 +1,9 @@
 # Changelog
 
+## [V0.1.1a8](https://github.com/OpenVoiceOS/jurebes/tree/V0.1.1a8) (2023-04-29)
+
+[Full Changelog](https://github.com/OpenVoiceOS/jurebes/compare/V0.1.1a7...V0.1.1a8)
+
 ## [V0.1.1a7](https://github.com/OpenVoiceOS/jurebes/tree/V0.1.1a7) (2023-04-28)
 
 [Full Changelog](https://github.com/OpenVoiceOS/jurebes/compare/V0.1.1a6...V0.1.1a7)
