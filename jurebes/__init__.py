@@ -20,7 +20,8 @@ class IntentMatch:
 
 
 class JurebesIntentContainer:
-    def __init__(self, clf=None, tagger=None, pipeline="tfidf_lemma", tagger_pipeline="naive", fuzzy=False):
+    def __init__(self, clf=None, tagger=SVC(probability=True), pipeline="tfidf_lemma",
+                 tagger_pipeline="naive", fuzzy=False):
         clf = clf or [SVC(probability=True),
                       LogisticRegression(),
                       DecisionTreeClassifier()]
@@ -31,9 +32,7 @@ class JurebesIntentContainer:
         else:
             self.classifier = SklearnOVOSClassifier(pipeline, clf)
 
-        if tagger is None:
-            self.tagger = OVOSNgramTagger(default_tag="O")
-        elif isinstance(tagger, list):
+        if isinstance(tagger, list):
             self.tagger = SklearnOVOSVotingClassifierTagger(tagger, tagger_pipeline)
         elif isinstance(tagger, OVOSNgramTagger):
             self.tagger = tagger
@@ -47,6 +46,7 @@ class JurebesIntentContainer:
         self.detached_intents = []
         self.detached_entities = []
         self.lock = RLock()  # ensure no failures if intent registered during inference
+        self.tagger.trained = False
 
     def enable_fuzzy(self):
         self.padacioso.fuzz = True
@@ -153,6 +153,8 @@ class JurebesIntentContainer:
                 del self.entity_samples[entity_name]
 
     def get_entities(self, query):
+        if not self.tagger.trained:
+            return {}
         entities = {}
         in_entity = False
         try:
@@ -319,9 +321,14 @@ class JurebesIntentContainer:
             if len(X):
                 if isinstance(self.tagger, OVOSNgramTagger):
                     self.tagger.train(X)
+                    self.tagger.trained = True
                 else:
                     X, y = self._transform_iob_to_dataset(X)
-                    self.tagger.train(X, y)
+                    try:
+                        self.tagger.train(X, y)
+                        self.tagger.trained = True
+                    except ValueError:
+                        LOG.error("Failed to train scikit-learn entity tagger, not enough entity classes!")
 
     def get_dataset(self):
         X = []
