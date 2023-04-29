@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-
+from threading import RLock
 from ovos_classifiers.skovos.classifier import SklearnOVOSClassifier, SklearnOVOSVotingClassifier
 from ovos_classifiers.skovos.tagger import SklearnOVOSClassifierTagger, SklearnOVOSVotingClassifierTagger
 from ovos_classifiers.tasks.tagger import OVOSNgramTagger
@@ -46,6 +46,7 @@ class JurebesIntentContainer:
         self.excluded_contexts = {}
         self.detached_intents = []
         self.detached_entities = []
+        self.lock = RLock()  # ensure no failures if intent registered during inference
 
     def enable_fuzzy(self):
         self.padacioso.fuzz = True
@@ -59,83 +60,97 @@ class JurebesIntentContainer:
             l = l.replace("{{", "{").replace("}}", "}")
             expanded += expand_parentheses(l.lower())
         samples = list(set(expanded))
-
-        self.padacioso.add_intent(intent_name, samples)
-        self.intent_samples[intent_name] = samples
+        with self.lock:
+            self.padacioso.add_intent(intent_name, samples)
+            self.intent_samples[intent_name] = samples
 
     def detach_intent(self, intent_name):
-        if intent_name not in self.detached_intents:
-            self.detached_intents.append(intent_name)
+        with self.lock:
+            if intent_name not in self.detached_intents:
+                self.detached_intents.append(intent_name)
 
     def reatach_intent(self, intent_name):
-        if intent_name in self.detached_intents:
-            self.detached_intents.remove(intent_name)
+        with self.lock:
+            if intent_name in self.detached_intents:
+                self.detached_intents.remove(intent_name)
 
     def detach_entity(self, entity_name):
-        if entity_name not in self.detached_entities:
-            self.detached_entities.append(entity_name)
+        with self.lock:
+            if entity_name not in self.detached_entities:
+                self.detached_entities.append(entity_name)
 
     def reatach_entity(self, entity_name):
-        if entity_name in self.detached_entities:
-            self.detached_entities.remove(entity_name)
+        with self.lock:
+            if entity_name in self.detached_entities:
+                self.detached_entities.remove(entity_name)
 
     def exclude_keywords(self, intent_name, samples):
-        if intent_name not in self.excluded_keywords:
-            self.excluded_keywords[intent_name] = samples
-        else:
-            self.excluded_keywords[intent_name] += samples
+        with self.lock:
+            if intent_name not in self.excluded_keywords:
+                self.excluded_keywords[intent_name] = samples
+            else:
+                self.excluded_keywords[intent_name] += samples
 
     def set_context(self, intent_name, context_name, context_val=None):
-        if intent_name not in self.available_contexts:
-            self.available_contexts[intent_name] = {}
-        self.available_contexts[intent_name][context_name] = context_val
+        with self.lock:
+            if intent_name not in self.available_contexts:
+                self.available_contexts[intent_name] = {}
+            self.available_contexts[intent_name][context_name] = context_val
 
     def exclude_context(self, intent_name, context_name):
-        if intent_name not in self.excluded_contexts:
-            self.excluded_contexts[intent_name] = [context_name]
-        else:
-            self.excluded_contexts[intent_name].append(context_name)
+        with self.lock:
+            if intent_name not in self.excluded_contexts:
+                self.excluded_contexts[intent_name] = [context_name]
+            else:
+                self.excluded_contexts[intent_name].append(context_name)
 
     def unexclude_context(self, intent_name, context_name):
-        if intent_name in self.excluded_contexts:
-            self.excluded_contexts[intent_name] = [c for c in self.excluded_contexts[intent_name]
-                                                   if context_name != c]
+        with self.lock:
+            if intent_name in self.excluded_contexts:
+                self.excluded_contexts[intent_name] = [c for c in self.excluded_contexts[intent_name]
+                                                       if context_name != c]
 
     def unset_context(self, intent_name, context_name):
-        if intent_name in self.available_contexts:
-            if context_name in self.available_contexts[intent_name]:
-                self.available_contexts[intent_name].pop(context_name)
+        with self.lock:
+            if intent_name in self.available_contexts:
+                if context_name in self.available_contexts[intent_name]:
+                    self.available_contexts[intent_name].pop(context_name)
 
     def require_context(self, intent_name, context_name):
-        if intent_name not in self.required_contexts:
-            self.required_contexts[intent_name] = [context_name]
-        else:
-            self.required_contexts[intent_name].append(context_name)
+        with self.lock:
+            if intent_name not in self.required_contexts:
+                self.required_contexts[intent_name] = [context_name]
+            else:
+                self.required_contexts[intent_name].append(context_name)
 
     def unrequire_context(self, intent_name, context_name):
-        if intent_name in self.required_contexts:
-            self.required_contexts[intent_name] = [c for c in self.required_contexts[intent_name]
-                                                   if context_name != c]
+        with self.lock:
+            if intent_name in self.required_contexts:
+                self.required_contexts[intent_name] = [c for c in self.required_contexts[intent_name]
+                                                       if context_name != c]
 
     def remove_intent(self, intent_name):
         self.detach_intent(intent_name)
-        self.padacioso.remove_intent(intent_name)
-        if intent_name in self.intent_samples:
-            del self.intent_samples[intent_name]
+        with self.lock:
+            self.padacioso.remove_intent(intent_name)
+            if intent_name in self.intent_samples:
+                del self.intent_samples[intent_name]
 
     def add_entity(self, entity_name, samples):
         expanded = []
         for l in samples:
             expanded += expand_parentheses(l.lower())
         samples = list(set(expanded))
-        self.padacioso.add_entity(entity_name, samples)
-        self.entity_samples[entity_name] = samples
+        with self.lock:
+            self.padacioso.add_entity(entity_name, samples)
+            self.entity_samples[entity_name] = samples
 
     def remove_entity(self, entity_name):
         self.detach_entity(entity_name)
-        self.padacioso.remove_entity(entity_name)
-        if entity_name in self.entity_samples:
-            del self.entity_samples[entity_name]
+        with self.lock:
+            self.padacioso.remove_entity(entity_name)
+            if entity_name in self.entity_samples:
+                del self.entity_samples[entity_name]
 
     def get_entities(self, query):
         entities = {}
@@ -168,109 +183,110 @@ class JurebesIntentContainer:
     def calc_intents(self, query):
         query = query.lower()
 
-        excluded_intents = self.detached_intents
-        for intent_name, samples in self.excluded_keywords.items():
-            if any(s in query for s in samples):
-                excluded_intents.append(intent_name)
-        for intent_name, contexts in self.required_contexts.items():
-            if intent_name not in self.available_contexts:
-                excluded_intents.append(intent_name)
-            elif any(context not in self.available_contexts[intent_name]
-                     for context in contexts):
-                excluded_intents.append(intent_name)
+        with self.lock:
+            excluded_intents = self.detached_intents
+            for intent_name, samples in self.excluded_keywords.items():
+                if any(s in query for s in samples):
+                    excluded_intents.append(intent_name)
+            for intent_name, contexts in self.required_contexts.items():
+                if intent_name not in self.available_contexts:
+                    excluded_intents.append(intent_name)
+                elif any(context not in self.available_contexts[intent_name]
+                         for context in contexts):
+                    excluded_intents.append(intent_name)
 
-        for intent_name, contexts in self.excluded_contexts.items():
-            if intent_name not in self.available_contexts:
-                continue
-            if any(context in self.available_contexts[intent_name]
-                   for context in contexts):
-                excluded_intents.append(intent_name)
-
-        ents = self.get_entities(query)
-
-        exact_intents = []
-
-        for exact_intent in self.padacioso.calc_intents(query):
-            if exact_intent["name"]:
-                if exact_intent["name"] in excluded_intents:
+            for intent_name, contexts in self.excluded_contexts.items():
+                if intent_name not in self.available_contexts:
                     continue
-                # inject regex extracted entities
-                if self.padacioso.fuzz or exact_intent["conf"] >= 0.8:
-                    ents.update(exact_intent["entities"])
-                exact_intents.append(IntentMatch(confidence=exact_intent["conf"],
-                                                 intent_name=exact_intent["name"],
-                                                 entities=exact_intent["entities"]))
+                if any(context in self.available_contexts[intent_name]
+                       for context in contexts):
+                    excluded_intents.append(intent_name)
 
-        for intent_name, samples in self.intent_samples.items():
-            if any(s == query for s in samples if "{" not in s):
-                # update confidence of previous match
-                for idx, i in enumerate(exact_intents):
-                    if i.intent_name == intent_name:
-                        exact_intents[idx].confidence = 1
-                        break
-                # add new exact match
-                else:
-                    exact_intents.append(IntentMatch(confidence=1.0,
-                                                     intent_name=intent_name,
-                                                     entities={}))
+            ents = self.get_entities(query)
 
-        ents = {k: v for k, v in ents.items() if k not in self.detached_entities}
+            exact_intents = []
 
-        classified_intents = []
-        leftover_prob = 0  # redistribute prob of excluded intents so predictions still sum up to 1
-
-        classes = self.classifier.clf.classes_
-
-        if self.classifier.clf is not None:  # trained!
-            probs = self.classifier.clf.predict_proba([query])[0]
-
-            for intent, prob in zip(classes, probs):
-                if intent in excluded_intents:
-                    leftover_prob += prob
-                    continue
-                if intent in self.available_contexts:
-                    for context, val in self.available_contexts[intent].items():
-                        if val is not None:
-                            ents[context] = val
-
-                for intent in exact_intents:
-                    if intent.intent_name != intent:
+            for exact_intent in self.padacioso.calc_intents(query):
+                if exact_intent["name"]:
+                    if exact_intent["name"] in excluded_intents:
                         continue
-                    # padacioso has a fake score, not a probability
-                    # usually returns 1.0 for exact matches
-                    # there is some variance between 0.75 and 0.95 with non-exact matches
-                    conf2 = exact_intents[intent].confidence
-                    ents2 = exact_intents[intent].entities
+                    # inject regex extracted entities
+                    if self.padacioso.fuzz or exact_intent["conf"] >= 0.8:
+                        ents.update(exact_intent["entities"])
+                    exact_intents.append(IntentMatch(confidence=exact_intent["conf"],
+                                                     intent_name=exact_intent["name"],
+                                                     entities=exact_intent["entities"]))
 
-                    # let's increase the base prediction probability
-                    # since we got 2 matches for same intent with different engines
-                    if conf2 == 1.0:
-                        # sample likely in training set
-                        bonus = 1.0
-                        # regex capture group match!
-                        if ents2:
-                            bonus = prob * 0.7
+            for intent_name, samples in self.intent_samples.items():
+                if any(s == query for s in samples if "{" not in s):
+                    # update confidence of previous match
+                    for idx, i in enumerate(exact_intents):
+                        if i.intent_name == intent_name:
+                            exact_intents[idx].confidence = 1
+                            break
+                    # add new exact match
                     else:
-                        bonus = conf2 * 0.5
+                        exact_intents.append(IntentMatch(confidence=1.0,
+                                                         intent_name=intent_name,
+                                                         entities={}))
 
-                    prob = min(1.0, prob + bonus)
+            ents = {k: v for k, v in ents.items() if k not in self.detached_entities}
 
-                exact_intents = [i for i in exact_intents if i.intent_name != intent]
+            classified_intents = []
+            leftover_prob = 0  # redistribute prob of excluded intents so predictions still sum up to 1
 
-                classified_intents.append(IntentMatch(confidence=prob,
-                                                      intent_name=intent,
-                                                      entities=ents))
+            classes = self.classifier.clf.classes_
 
-        # redistribute leftover probabilities due to excluded intents
-        # increase probs so they sum up to 1
-        # excludes/context rules would filter intents but not adjust probabilities
-        intents = classified_intents + exact_intents
-        total = sum(i.confidence for i in classified_intents)
-        normbonus = (1 - total) / len(intents)
+            if self.classifier.clf is not None:  # trained!
+                probs = self.classifier.clf.predict_proba([query])[0]
 
-        for i in intents:
-            i.confidence += normbonus
-            yield i
+                for intent_name, prob in zip(classes, probs):
+                    if intent_name in excluded_intents:
+                        leftover_prob += prob
+                        continue
+                    if intent_name in self.available_contexts:
+                        for context, val in self.available_contexts[intent_name].items():
+                            if val is not None:
+                                ents[context] = val
+
+                    for intent in exact_intents:
+                        if intent.intent_name != intent_name:
+                            continue
+                        # padacioso has a fake score, not a probability
+                        # usually returns 1.0 for exact matches
+                        # there is some variance between 0.75 and 0.95 with non-exact matches
+                        conf2 = intent.confidence
+                        ents2 = intent.entities
+
+                        # let's increase the base prediction probability
+                        # since we got 2 matches for same intent with different engines
+                        if conf2 == 1.0:
+                            # sample likely in training set
+                            bonus = 1.0
+                            # regex capture group match!
+                            if ents2:
+                                bonus = prob * 0.7
+                        else:
+                            bonus = conf2 * 0.5
+
+                        prob = min(1.0, prob + bonus)
+
+                    exact_intents = [i for i in exact_intents if i.intent_name != intent_name]
+
+                    classified_intents.append(IntentMatch(confidence=prob,
+                                                          intent_name=intent_name,
+                                                          entities=ents))
+
+            # redistribute leftover probabilities due to excluded intents
+            # increase probs so they sum up to 1
+            # excludes/context rules would filter intents but not adjust probabilities
+            intents = classified_intents + exact_intents
+            total = sum(i.confidence for i in classified_intents)
+            normbonus = (1 - total) / len(intents)
+
+            for i in intents:
+                i.confidence += normbonus
+                yield i
 
     def calc_intent(self, query, threshold=0):
         intents = list(self.calc_intents(query))
@@ -292,19 +308,20 @@ class JurebesIntentContainer:
         return X, y
 
     def train(self):
-        X, y = self.get_dataset()
-        if len(set(y)) < 2:
-            LOG.warning("not enough data to train! exact matches only")
-        else:
-            self.classifier.train(X, y)
-
-        X = self.get_iob_dataset()
-        if len(X):
-            if isinstance(self.tagger, OVOSNgramTagger):
-                self.tagger.train(X)
+        with self.lock:
+            X, y = self.get_dataset()
+            if len(set(y)) < 2:
+                LOG.warning("not enough data to train! exact matches only")
             else:
-                X, y = self._transform_iob_to_dataset(X)
-                self.tagger.train(X, y)
+                self.classifier.train(X, y)
+
+            X = self.get_iob_dataset()
+            if len(X):
+                if isinstance(self.tagger, OVOSNgramTagger):
+                    self.tagger.train(X)
+                else:
+                    X, y = self._transform_iob_to_dataset(X)
+                    self.tagger.train(X, y)
 
     def get_dataset(self):
         X = []
