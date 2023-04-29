@@ -31,8 +31,9 @@ class JurebesIntentContainer:
         else:
             self.classifier = SklearnOVOSClassifier(pipeline, clf)
 
-        tagger = tagger or SVC(probability=True)
-        if isinstance(tagger, list):
+        if tagger is None:
+            self.tagger = OVOSNgramTagger(default_tag="O")
+        elif isinstance(tagger, list):
             self.tagger = SklearnOVOSVotingClassifierTagger(tagger, tagger_pipeline)
         elif isinstance(tagger, OVOSNgramTagger):
             self.tagger = tagger
