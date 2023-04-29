@@ -200,7 +200,7 @@ class JurebesIntentContainer:
                                                  intent_name=exact_intent["name"],
                                                  entities=exact_intent["entities"]))
 
-        for intent_name, samples in self.intent_samples:
+        for intent_name, samples in self.intent_samples.items():
             if any(s == query for s in samples if "{" not in s):
                 # update confidence of previous match
                 for idx, i in enumerate(exact_intents):
