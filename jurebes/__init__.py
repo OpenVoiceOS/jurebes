@@ -269,7 +269,7 @@ class JurebesIntentContainer:
                             if ents2:
                                 bonus = prob * 0.7
                         else:
-                            bonus = conf2 * 0.5
+                            bonus = conf2 * (0.3 * len(ents2) + 0.1)
 
                         prob = min(1.0, prob + bonus)
 
