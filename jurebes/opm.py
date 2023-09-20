@@ -125,10 +125,9 @@ class JurebesPipelinePlugin(IntentPipelinePlugin):
         min_conf = min_conf or self.config.get("min_conf", 0.35)
         utterance = utterance.strip().lower()
         with self.lock:
-            intent = container.calc_intent(utterance).__dict__
+            intent = container.calc_intent(utterance)
         if intent.confidence < min_conf:
             return None
-
         intent_type, skill_id = _unmunge(intent.intent_name)
         return IntentMatch(intent_service=self.matcher_id,
                            intent_type=intent_type,
