@@ -49,6 +49,9 @@ def required(requirements_file):
         return [pkg for pkg in requirements
                 if pkg.strip() and not pkg.startswith("#")]
 
+PLUGIN_ENTRY_POINT = 'ovos-intent-plugin-jurebes=jurebes.opm:JurebesPipelinePlugin'
+
+
 
 setup(
     name='jurebes',
@@ -70,5 +73,6 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
-    ]
+    ],
+    entry_points={'ovos.pipeline': PLUGIN_ENTRY_POINT}
 )
