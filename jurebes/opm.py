@@ -93,18 +93,13 @@ class JurebesPipelinePlugin(IntentPipelinePlugin):
         LOG.debug("Detaching jurebes skill: " + skill_id)
         with self.lock:
             for lang in self.engines:
-                ents = []
-                intents = []
-                for entity in self.engines[lang].entity_samples.keys():
-                    munged = _munge(entity, skill_id)
-                    ents.append(munged)
-                for intent in self.engines[lang].intent_samples.keys():
-                    munged = _munge(intent, skill_id)
-                    intents.append(munged)
-                for munged in ents:
+                for entity in (e for e in self.registered_entities if e.skill_id == skill_id):
+                    munged = _munge(entity.name, skill_id)
                     self.engines[lang].remove_entity(munged)
-                for munged in intents:
+                for intent in (e for e in self.registered_intents if e.skill_id == skill_id):
+                    munged = _munge(intent.name, skill_id)
                     self.engines[lang].remove_intent(munged)
+
         super().detach_skill(skill_id)
 
     def register_entity(self, skill_id, entity_name, samples=None, lang=None):
